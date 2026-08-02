@@ -760,6 +760,18 @@ fun TrackScreen(
                     }
                 }
 
+                // Galeri background (kalau pilih Gambar Galeri)
+                if (bgSource == "galeri" && galleryUri != null) {
+                coil.compose.AsyncImage(
+                    model = galleryUri,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                )
+                // overlay gelap biar teks stats keliatan
+                Box(Modifier.fillMaxSize().background(ComposeColor.Black.copy(alpha = 0.35f)))
+                }
+
                 // If Full Map Background is active
                 if (bgSource == "peta" && snappedTrackPoints.isNotEmpty()) {
                     if (selectedMapMode == MapDisplayMode.VECTOR) {
@@ -991,10 +1003,14 @@ fun TrackScreen(
                     // Galeri thumbnail (kalau pilih Galeri)
                     if (bgSource == "galeri") {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(
-                                text = if (galleryUri != null) "Gambar dipilih ✓" else "Belum ada gambar",
-                                fontSize = 11.sp, color = GojekGreen, fontWeight = FontWeight.Bold
-                            )
+                            galleryUri?.let { uri ->
+                                coil.compose.AsyncImage(
+                                    model = uri,
+                                    contentDescription = "Preview gambar galeri",
+                                    modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                )
+                            }
                             OutlinedButton(
                                 onClick = { galleryLauncher.launch("image/*") },
                                 modifier = Modifier.weight(1f).height(40.dp),
@@ -1004,7 +1020,7 @@ fun TrackScreen(
                             ) {
                                 Icon(Icons.Default.Image, null, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(6.dp))
-                                Text("Ganti Gambar", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text(if (galleryUri != null) "Ganti Gambar" else "Pilih Gambar", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }

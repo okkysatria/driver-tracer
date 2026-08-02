@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import android.graphics.Paint
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -32,16 +33,34 @@ import com.example.data.TrackPoint
 import com.example.ui.theme.GojekGreen
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.MapTileProviderBasic
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView as OsmMapViewNative
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
+import org.osmdroid.views.overlay.Overlay
 import java.io.File
 import java.util.Locale
+
+/**
+ * Tile sources dengan kualitas tinggi (CartoDB).
+ * - Dark: CartoDB Dark Matter (cocok untuk night mode driver)
+ * - Light: CartoDB Positron (clean & profesional)
+ */
+private fun cartoTileSource(name: String, url: String): XYTileSource {
+    return XYTileSource(
+        name, 0, 20, 256, ".png",
+        arrayOf(url)
+    )
+}
+
+private val TILE_CARTO_DARK = cartoTileSource(
+    "CartoDark", "https://a.basemaps.cartocdn.com/dark_all/"
+)
+private val TILE_CARTO_LIGHT = cartoTileSource(
+    "CartoLight", "https://a.basemaps.cartocdn.com/light_all/"
+)
+private val TILE_OSM_FALLBACK = org.osmdroid.tileprovider.tilesource.TileSourceFactory.MAPNIK
 
 @Composable
 fun OsmMapView(
@@ -57,19 +76,17 @@ fun OsmMapView(
 ) {
     val context = LocalContext.current
 
-    // ── Controls State ────────────────────────────────────────────
     var isAutoCentered by remember { mutableStateOf(true) }
     var selectedOrderHotspot by remember { mutableStateOf<OrderRecord?>(null) }
 
-    // ── Color palettes ────────────────────────────────────────────
     val themeBgColor = if (isDarkMode) Color(0xFF0F1319) else Color(0xFFEFF1F4)
 
-    // ── Build osmdroid MapView (Flicker-Free, single instantiation) ──
     val osmMapView = remember {
         object : OsmMapViewNative(context) {
             override fun dispatchTouchEvent(ev: android.view.MotionEvent?): Boolean {
-                if (ev?.action == android.view.MotionEvent.ACTION_DOWN || 
-                    ev?.action == android.view.MotionEvent.ACTION_MOVE) {
+                if (ev?.action == android.view.MotionEvent.ACTION_DOWN ||
+                    ev?.action == android.view.MotionEvent.ACTION_MOVE
+                ) {
                     isAutoCentered = false
                 }
                 return super.dispatchTouchEvent(ev)
@@ -88,67 +105,32 @@ fun OsmMapView(
             .background(themeBgColor)
             .testTag("surabaya_vector_map")
     ) {
-        // ── Native Map Integration ────────────────────────────────
         AndroidView(
             modifier = Modifier.fillMaxSize().testTag("native_osmdroid_map"),
             factory = { osmMapView },
             update = { view ->
-                // 1. Dynamic Tile Source Handling
-                // Tag includes mapSource value so different sources trigger reload
                 val isOffline = mapSource == "manual_pbf" && importedPbfUri != null
                 val expectedTag = when {
                     isOffline -> "offline_${importedPbfUri}"
-                    else -> "online_${mapSource}"
+                    else -> "online_${if (isDarkMode) "dark" else "light"}"
                 }
-                
+
                 if (view.tag != expectedTag) {
                     view.tag = expectedTag
-                    when {
-                        isOffline -> {
-                            val tilesDir = File(context.getExternalFilesDir(null), "osmdroid/tiles")
-                            val mapFile = tilesDir.listFiles()?.firstOrNull { it.name.startsWith("offline_map") }
-                            if (mapFile != null && mapFile.exists()) {
-                                try {
-                                    val offlineTileProvider = MapTileProviderBasic(context)
-                                    offlineTileProvider.tileSource = XYTileSource(
-                                        "OfflineMap", 1, 19, 256, ".png", arrayOf()
-                                    )
-                                    view.setTileProvider(offlineTileProvider)
-                                } catch (e: Exception) {
-                                    view.setTileSource(TileSourceFactory.MAPNIK)
-                                }
-                            } else {
-                                view.setTileSource(TileSourceFactory.MAPNIK)
-                            }
-                        }
-                        else -> {
-                            // Always recreate online provider when source tag changes
-                            val onlineProvider = MapTileProviderBasic(context)
-                            onlineProvider.tileSource = TileSourceFactory.MAPNIK
-                            view.setTileProvider(onlineProvider)
-                        }
+                    val provider = MapTileProviderBasic(context)
+                    provider.tileSource = if (isOffline) {
+                        TILE_OSM_FALLBACK
+                    } else if (isDarkMode) {
+                        TILE_CARTO_DARK
+                    } else {
+                        TILE_CARTO_LIGHT
                     }
+                    view.setTileProvider(provider)
+                    view.controller.setZoom(15.5)
                 }
 
-                // 2. Dynamic Dark Mode Styling
-                val colorFilter = if (isDarkMode) {
-                    val m = ColorMatrix()
-                    m.set(floatArrayOf(
-                        -0.65f, 0f, 0f, 0f, 210f,
-                        0f, -0.65f, 0f, 0f, 210f,
-                        0f, 0f, -0.65f, 0f, 210f,
-                        0f, 0f, 0f, 1f, 0f
-                    ))
-                    ColorMatrixColorFilter(m)
-                } else {
-                    null
-                }
-                view.overlayManager.tilesOverlay.setColorFilter(colorFilter)
-
-                // 3. Clear and Render Overlays Dynamically
                 view.overlays.clear()
 
-                // Center camera if locked
                 if (isAutoCentered) {
                     view.controller.animateTo(GeoPoint(latitude, longitude))
                 }
@@ -159,8 +141,8 @@ fun OsmMapView(
                         outlinePaint.apply {
                             color = android.graphics.Color.argb(230, 0, 200, 20)
                             strokeWidth = 12f
-                            strokeCap = android.graphics.Paint.Cap.ROUND
-                            strokeJoin = android.graphics.Paint.Join.ROUND
+                            strokeCap = Paint.Cap.ROUND
+                            strokeJoin = Paint.Join.ROUND
                             setShadowLayer(8f, 0f, 0f, android.graphics.Color.argb(120, 0, 255, 30))
                             isAntiAlias = true
                         }
@@ -169,11 +151,22 @@ fun OsmMapView(
                     view.overlays.add(polyline)
                 }
 
-                // Hotspot Order Markers & Heatmap Translucent Overlays (Up to 30 elements)
+                // Heatmap gradient overlay dari historical orders
+                val heatPoints = historicalOrders.mapNotNull { order ->
+                    if (order.latitudeAwal != 0.0) {
+                        // intensitas dari durasi (semakin lama = semakin panas)
+                        val intensity = (order.durasi.toFloat() / 120f).coerceIn(0.2f, 1f)
+                        HeatPoint(order.latitudeAwal, order.longitudeAwal, intensity)
+                    } else null
+                }
+                if (heatPoints.isNotEmpty()) {
+                    view.overlays.add(HeatmapOverlay(heatPoints))
+                }
+
+                // Hotspot Order Markers (max 30)
                 historicalOrders.take(30).forEach { order ->
                     if (order.latitudeAwal != 0.0) {
                         val intensity = order.durasi.toInt().coerceIn(10, 100)
-
                         val marker = Marker(view).apply {
                             position = GeoPoint(order.latitudeAwal, order.longitudeAwal)
                             title = "🔥 Potensi: $intensity% • Rp ${order.pendapatan.toLong()}"
@@ -190,7 +183,7 @@ fun OsmMapView(
                     }
                 }
 
-                // Live Driver Location Marker (Distinct white-bordered blue dot with pulsing ring)
+                // Live Driver Location Marker
                 val driverMarker = Marker(view).apply {
                     position = GeoPoint(latitude, longitude)
                     title = "📍 Lokasi Anda"
@@ -204,14 +197,13 @@ fun OsmMapView(
             }
         )
 
-        // ── Floating Action Buttons (Top-Right controls) ───────────
+        // Floating Action Buttons
         Column(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Lock GPS
             MapFab(
                 icon = Icons.Default.GpsFixed,
                 active = isAutoCentered,
@@ -221,33 +213,27 @@ fun OsmMapView(
                     selectedOrderHotspot = null
                 }
             )
-            // Zoom In
             MapFab(
                 icon = Icons.Default.Add,
                 active = false,
                 tag = "map_zoom_in_button",
                 onClick = {
                     isAutoCentered = false
-                    try {
-                        osmMapView.controller.zoomIn()
-                    } catch (e: Exception) { e.printStackTrace() }
+                    try { osmMapView.controller.zoomIn() } catch (e: Exception) { e.printStackTrace() }
                 }
             )
-            // Zoom Out
             MapFab(
                 icon = Icons.Default.Remove,
                 active = false,
                 tag = "map_zoom_out_button",
                 onClick = {
                     isAutoCentered = false
-                    try {
-                        osmMapView.controller.zoomOut()
-                    } catch (e: Exception) { e.printStackTrace() }
+                    try { osmMapView.controller.zoomOut() } catch (e: Exception) { e.printStackTrace() }
                 }
             )
         }
 
-        // ── Hotspot Info Card (Bottom floating overlay) ────────────
+        // Hotspot Info Card
         AnimatedVisibility(
             visible = selectedOrderHotspot != null,
             enter = fadeIn() + scaleIn(initialScale = 0.96f, transformOrigin = TransformOrigin(0.5f, 1f)),
@@ -316,6 +302,35 @@ fun OsmMapView(
     }
 }
 
+// ── Heatmap Gradient Overlay ───────────────────────────────────────
+data class HeatPoint(val lat: Double, val lng: Double, val intensity: Float)
+
+/**
+ * Overlay sederhana yang menggambar lingkaran radial-gradient
+ * untuk efek heatmap (tanpa library tambahan).
+ * Warna: hijau (rendah) → kuning → merah (tinggi).
+ */
+private class HeatmapOverlay(private val points: List<HeatPoint>) : Overlay() {
+    override fun draw(canvas: android.graphics.Canvas, mapView: org.osmdroid.views.MapView, shadow: Boolean) {
+        if (shadow) return
+        val projection = mapView.projection
+        for (p in points) {
+            val pt = projection.toPixels(GeoPoint(p.lat, p.lng), null) ?: continue
+            val radius = (40 + p.intensity * 80).toFloat()
+            val paint = Paint().apply { isAntiAlias = true }
+            // outer glow (red)
+            paint.color = android.graphics.Color.argb((70 * p.intensity).toInt(), 255, 60, 30)
+            canvas.drawCircle(pt.x.toFloat(), pt.y.toFloat(), radius, paint)
+            // mid (yellow)
+            paint.color = android.graphics.Color.argb((90 * p.intensity).toInt(), 255, 200, 40)
+            canvas.drawCircle(pt.x.toFloat(), pt.y.toFloat(), radius * 0.6f, paint)
+            // core (green-ish hot)
+            paint.color = android.graphics.Color.argb((120 * p.intensity).toInt(), 0, 200, 80)
+            canvas.drawCircle(pt.x.toFloat(), pt.y.toFloat(), radius * 0.3f, paint)
+        }
+    }
+}
+
 @Composable
 private fun MapFab(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -348,30 +363,22 @@ private fun MapFab(
     }
 }
 
-/**
- * Dynamically draws marker icons for hotspots with distinct color categories and letter labels.
- */
 private fun createMarkerIcon(context: android.content.Context, type: String): android.graphics.drawable.Drawable {
     val sizePx = 86
     val bitmap = android.graphics.Bitmap.createBitmap(sizePx, sizePx, android.graphics.Bitmap.Config.ARGB_8888)
     val canvas = android.graphics.Canvas(bitmap)
-    
-    // Color categorization based on service type
+
     val color = when (type.lowercase(Locale.ROOT)) {
-        "food", "gofood", "makanan" -> android.graphics.Color.rgb(230, 126, 34) // Orange (Food)
-        "paket", "gosend", "barang" -> android.graphics.Color.rgb(41, 128, 185)  // Blue (Package)
-        else -> android.graphics.Color.rgb(0, 170, 19)                         // Gojek Green (Ride)
+        "food", "gofood", "makanan" -> android.graphics.Color.rgb(230, 126, 34)
+        "paket", "gosend", "barang" -> android.graphics.Color.rgb(41, 128, 185)
+        else -> android.graphics.Color.rgb(0, 170, 19)
     }
 
-    val paint = android.graphics.Paint().apply {
-        isAntiAlias = true
-    }
+    val paint = android.graphics.Paint().apply { isAntiAlias = true }
 
-    // Shadow
     paint.color = android.graphics.Color.argb(70, 0, 0, 0)
     canvas.drawCircle(sizePx / 2f, sizePx * 0.85f, 12f, paint)
 
-    // Pin shape
     paint.color = color
     val path = android.graphics.Path().apply {
         val cx = sizePx / 2f
@@ -381,30 +388,26 @@ private fun createMarkerIcon(context: android.content.Context, type: String): an
         lineTo(cx - r * 0.75f, cy + r * 0.6f)
         arcTo(
             android.graphics.RectF(cx - r, cy - r, cx + r, cy + r),
-            145f,
-            250f,
-            false
+            145f, 250f, false
         )
         close()
     }
     canvas.drawPath(path, paint)
 
-    // Outer white dot in center
     paint.color = android.graphics.Color.WHITE
     canvas.drawCircle(sizePx / 2f, sizePx * 0.35f, sizePx * 0.20f, paint)
 
-    // Inner custom letter representing service
     paint.color = color
     paint.textSize = sizePx * 0.26f
     paint.isFakeBoldText = true
     paint.textAlign = android.graphics.Paint.Align.CENTER
-    
+
     val letter = when (type.lowercase(Locale.ROOT)) {
         "food", "gofood", "makanan" -> "F"
         "paket", "gosend", "barang" -> "P"
         else -> "R"
     }
-    
+
     val fm = paint.fontMetrics
     val yOffset = (fm.descent - fm.ascent) / 2f - fm.descent
     canvas.drawText(letter, sizePx / 2f, sizePx * 0.35f + yOffset, paint)
@@ -412,35 +415,27 @@ private fun createMarkerIcon(context: android.content.Context, type: String): an
     return android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
 }
 
-/**
- * Dynamically draws the driver's current position icon (Gojek-style green helmet marker).
- */
 private fun createDriverIcon(context: android.content.Context): android.graphics.drawable.Drawable {
     val sizePx = 96
     val bitmap = android.graphics.Bitmap.createBitmap(sizePx, sizePx, android.graphics.Bitmap.Config.ARGB_8888)
     val canvas = android.graphics.Canvas(bitmap)
     val paint = android.graphics.Paint().apply { isAntiAlias = true }
 
-    // 1. Shadow
     paint.color = android.graphics.Color.argb(80, 0, 0, 0)
     canvas.drawCircle(sizePx / 2f, sizePx / 2f + 4f, sizePx * 0.4f, paint)
 
-    // 2. Outer glowing ring (White)
     paint.color = android.graphics.Color.WHITE
     canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx * 0.4f, paint)
 
-    // 3. Inner circle (Gojek Green)
     paint.color = android.graphics.Color.rgb(0, 170, 19)
     canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx * 0.34f, paint)
 
-    // 4. Helmet Dome (White/Silver)
     paint.color = android.graphics.Color.WHITE
     val cx = sizePx / 2f
     val cy = sizePx / 2f
     val r = sizePx * 0.18f
     canvas.drawCircle(cx, cy - 2f, r, paint)
 
-    // 5. Visor (Black)
     paint.color = android.graphics.Color.BLACK
     val visorPath = android.graphics.Path().apply {
         moveTo(cx - r * 0.9f, cy - 2f)
@@ -451,7 +446,6 @@ private fun createDriverIcon(context: android.content.Context): android.graphics
     }
     canvas.drawPath(visorPath, paint)
 
-    // 6. Visor Reflection (White gloss line)
     paint.color = android.graphics.Color.argb(150, 255, 255, 255)
     paint.strokeWidth = 2f
     canvas.drawLine(cx - r * 0.5f, cy + 2f, cx - r * 0.2f, cy + 4f, paint)

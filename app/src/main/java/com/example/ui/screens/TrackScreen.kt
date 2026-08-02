@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.FileProvider
 import com.example.data.TrackPoint
@@ -494,10 +495,25 @@ fun TrackScreen(
     var isAdvancedExpanded by remember { mutableStateOf(false) }
     var selectedTemplatePreset by remember { mutableStateOf<TrackerTemplatePreset?>(TrackerTemplatePreset.GOJEK_SLEEK) }
 
+    // === Strava-style state baru ===
+    // Multi-pilih hari (kalender) - default 1 hari terpilih
+    var selectedDates by remember { mutableStateOf(setOf(selectedDate)) }
+    // Sumber latar poster: "peta" | "warna" | "galeri"
+    var bgSource by remember { mutableStateOf("peta") }
+    var galleryUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var solidColor by remember { mutableStateOf(ComposeColor(0xFF041E15)) }
+    // Rasio ekspor: "4:3" | "vertikal" | "wide"
+    var exportRatio by remember { mutableStateOf("vertikal") }
+    var showCustomSheet by remember { mutableStateOf(false) }
+    // launcher galeri
+    val galleryLauncher = rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? -> galleryUri = uri }
+
     // Data
-    val dayOrders = remember(orders, selectedDate, orderTypeFilter) {
+    val dayOrders = remember(orders, selectedDates, orderTypeFilter) {
         orders.filter { o ->
-            o.tanggal == selectedDate && (
+            selectedDates.contains(o.tanggal) && (
                 orderTypeFilter == "Semua" ||
                 (orderTypeFilter == "Penumpang" && o.jenisOrder.equals("Penumpang", ignoreCase = true)) ||
                 (orderTypeFilter == "Paket" && (o.jenisOrder.equals("Barang", ignoreCase = true) || o.jenisOrder.equals("Paket", ignoreCase = true) || o.jenisOrder.equals("GoSend", ignoreCase = true))) ||
@@ -507,7 +523,8 @@ fun TrackScreen(
     }
     val consolidatedTrackPoints = remember(dayOrders) {
         val pts = mutableListOf<TrackPoint>()
-        dayOrders.forEach { pts.addAll(it.getTrackPoints()) }
+        // urutkan per tanggal biar rute tersusun rapi
+        dayOrders.sortedBy { it.tanggal }.forEach { pts.addAll(it.getTrackPoints()) }
         pts.toList()
     }
 
@@ -563,7 +580,7 @@ fun TrackScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .verticalScroll(rememberScrollState())
         ) {
-            // Section 1: Filter Tanggal & Data
+            // Section 1: Kalender Pilih Hari (record order)
             Card(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -576,63 +593,111 @@ fun TrackScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Column {
-                            Text(
-                                text = formattedDateTitle,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                color = GojekGreen
-                            )
-                            val cnt = if (dayOrders.isEmpty()) "Tidak ada order" else "${dayOrders.size} order"
-                            Text(
-                                text = "$selectedDate  •  $cnt",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Button(
-                            onClick = {
-                                val cal = Calendar.getInstance()
-                                try { val p = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(selectedDate); if (p != null) cal.time = p } catch (_: Exception) {}
-                                android.app.DatePickerDialog(context, { _, y: Int, m: Int, d: Int ->
-                                    selectedDate = "$y-${"%02d".format(m + 1)}-${"%02d".format(d)}"
-                                }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = GojekGreen),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.testTag("track_pick_date_picker_button")
-                        ) {
-                            Icon(Icons.Default.DateRange, null, modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Kalender", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
+                        Text(
+                            text = "Pilih Hari (record order)",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = GojekGreen
+                        )
+                        Text(
+                            text = "${selectedDates.size} hari dipilih",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
 
-                    if (availableDates.isNotEmpty()) {
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            availableDates.take(6).forEach { date ->
-                                val isSel = selectedDate == date
-                                FilterChip(
-                                    selected = isSel,
-                                    onClick = { selectedDate = date },
-                                    label = { Text(date.takeLast(5), fontSize = 10.sp, fontWeight = FontWeight.Bold) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = GojekGreen,
-                                        selectedLabelColor = ComposeColor.White,
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                )
+                    // Kalender bulan berjalan (bulan dari selectedDate pertama)
+                    val calBase = Calendar.getInstance().apply {
+                        try {
+                            val d = selectedDates.firstOrNull() ?: selectedDate
+                            time = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(d) ?: Date()
+                        } catch (_: Exception) {}
+                    }
+                    val month = calBase.get(Calendar.MONTH)
+                    val year = calBase.get(Calendar.YEAR)
+                    val daysInMonth = calBase.getActualMaximum(Calendar.DAY_OF_MONTH)
+                    val firstDayOfWeek = Calendar.getInstance().apply {
+                        set(year, month, 1)
+                    }.get(Calendar.DAY_OF_WEEK) // 1=Sun..7=Sat
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = SimpleDateFormat("MMMM yyyy", Locale.forLanguageTag("id-ID")).format(calBase.time),
+                            fontSize = 12.sp, fontWeight = FontWeight.Bold
+                        )
+                        Row {
+                            IconButton(onClick = { /* prev month: pindah selectedDate ke awal bulan sblm */ }, modifier = Modifier.size(28.dp)) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = GojekGreen, modifier = Modifier.size(16.dp))
+                            }
+                            IconButton(onClick = { /* next month */ }, modifier = Modifier.size(28.dp)) {
+                                Icon(Icons.Filled.ArrowForward, null, tint = GojekGreen, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
+
+                    // Header hari
+                    Row(Modifier.fillMaxWidth()) {
+                        listOf("Min","Sen","Sel","Rab","Kam","Jum","Sab").forEach { d ->
+                            Text(d, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+
+                    // Grid tanggal
+                    val totalCells = firstDayOfWeek - 1 + daysInMonth
+                    val weeks = (totalCells + 6) / 7
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        for (w in 0 until weeks) {
+                            Row(Modifier.fillMaxWidth()) {
+                                for (c in 0 until 7) {
+                                    val idx = w * 7 + c
+                                    val dayNum = idx - (firstDayOfWeek - 1) + 1
+                                    if (dayNum in 1..daysInMonth) {
+                                        val dateStr = String.format("%04d-%02d-%02d", year, month + 1, dayNum)
+                                        val hasOrder = availableDates.contains(dateStr)
+                                        val isSel = selectedDates.contains(dateStr)
+                                        val isToday = dateStr == SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+                                        Box(
+                                            modifier = Modifier.weight(1f).aspectRatio(1f)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(
+                                                    when {
+                                                        isSel -> GojekGreen
+                                                        hasOrder -> GojekGreen.copy(alpha = 0.12f)
+                                                        else -> ComposeColor.Transparent
+                                                    }
+                                                )
+                                                .border(1.dp, if (isToday) GojekGreen else ComposeColor.Transparent, RoundedCornerShape(8.dp))
+                                                .clickable(enabled = hasOrder) { selectedDates = selectedDates.toMutableSet().apply { if (isSel) remove(dateStr) else add(dateStr) } },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                Text(
+                                                    text = dayNum.toString(),
+                                                    fontSize = 11.sp,
+                                                    fontWeight = if (isSel || hasOrder) FontWeight.Bold else FontWeight.Normal,
+                                                    color = when {
+                                                        isSel -> ComposeColor.White
+                                                        hasOrder -> GojekGreen
+                                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                                    }
+                                                )
+                                                if (hasOrder) Box(modifier = Modifier.size(4.dp).background(if (isSel) ComposeColor.White else GojekGreen, CircleShape))
+                                            }
+                                        }
+                                    } else {
+                                        Box(modifier = Modifier.weight(1f).aspectRatio(1f))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Text("● titik = ada record order", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-
             if (dayOrders.isEmpty()) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -666,11 +731,10 @@ fun TrackScreen(
                     .shadow(if (posterBgStyle == PosterBgStyle.TRANSPARENT) 0.dp else 12.dp, RoundedCornerShape(20.dp))
                     .clip(RoundedCornerShape(20.dp))
                     .background(
-                        if (posterBgStyle == PosterBgStyle.MAP_OSM || posterBgStyle == PosterBgStyle.TRANSPARENT) SolidColor(ComposeColor.Transparent)
-                        else when (posterBgStyle) {
-                            PosterBgStyle.GRADIENT_DARK  -> Brush.verticalGradient(listOf(ComposeColor(0xFF1A1A2E), ComposeColor(0xFF0F0F1A)))
-                            PosterBgStyle.GRADIENT_GREEN -> Brush.verticalGradient(listOf(ComposeColor(0xFF0A3320), ComposeColor(0xFF041E15)))
-                            else -> SolidColor(posterBgColor)
+                        when (bgSource) {
+                            "warna" -> SolidColor(solidColor)
+                            "galeri" -> SolidColor(solidColor)
+                            else -> SolidColor(ComposeColor.Transparent) // peta -> diisi MapView di bawah
                         }
                     )
                     .border(
@@ -697,7 +761,7 @@ fun TrackScreen(
                 }
 
                 // If Full Map Background is active
-                if (posterBgStyle == PosterBgStyle.MAP_OSM && snappedTrackPoints.isNotEmpty()) {
+                if (bgSource == "peta" && snappedTrackPoints.isNotEmpty()) {
                     if (selectedMapMode == MapDisplayMode.VECTOR) {
                         RoutePreviewCanvas(snappedTrackPoints, selectedTheme.accentColor, showStartMarker, showEndMarker, Modifier.fillMaxSize())
                     } else if (mapBgStyle == MapBgStyle.MAP_TILES) {
@@ -882,85 +946,101 @@ fun TrackScreen(
                 }
             }
 
-            // Section 4: DESIGN TEMPLATES (One-click presets selector!)
+            // Section 4: Sumber Latar Poster + Rasio
             Card(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             ) {
-                Column(Modifier.padding(12.dp)) {
-                    Text(
-                        text = "PILIH TEMPLATE DESAIN:",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        TrackerTemplatePreset.entries.forEach { preset ->
-                            val isSel = selectedTemplatePreset == preset
-                            val borderStroke = if (isSel) BorderStroke(2.5.dp, GojekGreen) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
-                            val cardBg = if (isSel) GojekGreen.copy(alpha = 0.06f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
-                            
-                            Card(
-                                modifier = Modifier
-                                    .width(135.dp)
-                                    .height(90.dp)
-                                    .clickable {
-                                        selectedTemplatePreset = preset
-                                        selectedTheme = preset.theme
-                                        posterBgStyle = preset.posterBgStyle
-                                        mapBgStyle = preset.mapBgStyle
-                                        selectedMapMode = preset.selectedMapMode
-                                        selectedColorPreset = preset.selectedColorPreset
-                                        showGridInMap = preset.showGrid
-                                    },
-                                shape = RoundedCornerShape(12.dp),
-                                border = borderStroke,
-                                colors = CardDefaults.cardColors(containerColor = cardBg)
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // Sumber latar
+                    Text("SUMBER LATAR POSTER", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("peta" to "Peta", "warna" to "Warna", "galeri" to "Gambar Galeri").forEach { (v, lbl) ->
+                            val isSel = bgSource == v
+                            Button(
+                                onClick = {
+                                    bgSource = v
+                                    if (v == "galeri") galleryLauncher.launch("image/*")
+                                },
+                                modifier = Modifier.weight(1f).height(40.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = if (isSel) GojekGreen else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
                             ) {
-                                Column(
-                                    modifier = Modifier.fillMaxSize().padding(8.dp),
-                                    verticalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(22.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                if (preset.posterBgStyle == PosterBgStyle.TRANSPARENT) ComposeColor.LightGray.copy(alpha = 0.3f)
-                                                else when (preset.posterBgStyle) {
-                                                    PosterBgStyle.GRADIENT_GREEN -> ComposeColor(0xFF041E15)
-                                                    PosterBgStyle.GRADIENT_DARK -> ComposeColor(0xFF0F0F1A)
-                                                    PosterBgStyle.LIGHT_SOLID -> ComposeColor(0xFFF5F5F5)
-                                                    else -> preset.theme.bgColor
-                                                }
-                                            )
-                                            .border(1.dp, preset.theme.accentColor.copy(alpha = 0.4f), CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            if (preset.mapBgStyle == MapBgStyle.TRANSPARENT) Icons.Default.Route else Icons.Default.Map,
-                                            null,
-                                            tint = preset.theme.accentColor,
-                                            modifier = Modifier.size(11.dp)
-                                        )
-                                    }
-                                    Column {
-                                        Text(preset.displayName, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = if (isSel) GojekGreen else MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text(preset.description, fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    }
-                                }
+                                Text(lbl, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (isSel) ComposeColor.White else MaterialTheme.colorScheme.onSurface)
                             }
                         }
                     }
+
+                    // Warna picker (kalau pilih Warna)
+                    if (bgSource == "warna") {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(0xFF041E15 to "Hijau Tua", 0xFF0A3320 to "Forest", 0xFFFC6100 to "Orange", 0xFF1B1D21 to "Hitam", 0xFFE53935 to "Merah", 0xFFF5F5F5 to "Putih").forEach { (c, _) ->
+                                val col = ComposeColor(c)
+                                Box(
+                                    modifier = Modifier.size(30.dp).clip(CircleShape)
+                                        .background(col)
+                                        .border(2.dp, if (solidColor == col) GojekGreen else ComposeColor.Transparent, CircleShape)
+                                        .clickable { solidColor = col }
+                                )
+                            }
+                        }
+                    }
+
+                    // Galeri thumbnail (kalau pilih Galeri)
+                    if (bgSource == "galeri") {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = if (galleryUri != null) "Gambar dipilih ✓" else "Belum ada gambar",
+                                fontSize = 11.sp, color = GojekGreen, fontWeight = FontWeight.Bold
+                            )
+                            OutlinedButton(
+                                onClick = { galleryLauncher.launch("image/*") },
+                                modifier = Modifier.weight(1f).height(40.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.5.dp, GojekGreen),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = GojekGreen)
+                            ) {
+                                Icon(Icons.Default.Image, null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Ganti Gambar", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+
+                    // Rasio ekspor
+                    Text("RASIO EKSPOR", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("4:3" to "4:3", "vertikal" to "Vertikal (Story)", "wide" to "Wide").forEach { (v, lbl) ->
+                            val isSel = exportRatio == v
+                            Button(
+                                onClick = { exportRatio = v },
+                                modifier = Modifier.weight(1f).height(40.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = if (isSel) GojekGreen else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                            ) {
+                                Text(lbl, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (isSel) ComposeColor.White else MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
+                    }
+
+                    // Tombol buka bottom sheet kustomisasi
+                    OutlinedButton(
+                        onClick = { showCustomSheet = true },
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.5.dp, GojekGreen),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GojekGreen)
+                    ) {
+                        Icon(Icons.Default.Tune, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Sesuaikan Lainnya", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
-
             // Section 5: Expandable Accordion for Advanced Settings
             Card(
                 modifier = Modifier
@@ -1108,6 +1188,78 @@ fun TrackScreen(
             }
 
             Spacer(Modifier.height(40.dp))
+
+            if (showCustomSheet) {
+                ModalBottomSheet(
+                    onDismissRequest = { showCustomSheet = false },
+                    sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                    containerColor = MaterialTheme.colorScheme.surface
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("Sesuaikan Poster", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = GojekGreen)
+                        HorizontalDivider()
+
+                        Text("NAMA PENGENDARA (WATERMARK)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        OutlinedTextField(
+                            value = driverNameInput,
+                            onValueChange = { driverNameInput = it },
+                            label = { Text("Nama Pengendara") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            leadingIcon = { Icon(Icons.Default.Person, null, tint = GojekGreen) },
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GojekGreen, focusedLabelColor = GojekGreen),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+
+                        Text("JENIS LAYANAN:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            listOf("Semua", "Penumpang", "Paket", "Makanan").forEach { t ->
+                                FilterChip(
+                                    selected = orderTypeFilter == t,
+                                    onClick = { orderTypeFilter = t },
+                                    label = { Text(t, fontSize = 9.5.sp, fontWeight = FontWeight.Bold) },
+                                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = GojekGreen, selectedLabelColor = ComposeColor.White),
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+
+                        Text("TAMPILKAN ELEMEN STATS:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), RoundedCornerShape(10.dp))) {
+                            val dText = if (distanceType == "antar") "Jarak Antar" else "Jarak Tempuh"
+                            ToggleRow(showDistance, { showDistance = it }, Icons.Default.Route, dText, String.format(Locale.getDefault(), "%.1f km", totalDistance), GojekGreen)
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
+                            ToggleRow(showEarnings, { showEarnings = it }, Icons.Default.Payments, "Pendapatan", currencyFormatter.format(earningsToShow), GojekYellow)
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
+                            ToggleRow(showDuration, { showDuration = it }, Icons.Default.Timer, "Durasi", "${totalDurationMin / 60}j ${totalDurationMin % 60}m", ComposeColor(0xFF00E5FF))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
+                            ToggleRow(showTrips, { showTrips = it }, Icons.Default.ConfirmationNumber, "Jumlah Order", "$orderCount Trip", ComposeColor(0xFFFF6B35))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
+                            ToggleRow(showWatermark, { showWatermark = it }, Icons.Default.Person, "Nama Pengendara", driverNameInput.ifEmpty { "(belum diisi)" }, ComposeColor(0xFFBB86FC))
+                        }
+
+                        Text("MARKER PETA (START & END):", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), RoundedCornerShape(10.dp))) {
+                            ToggleRow(showStartMarker, { showStartMarker = it }, Icons.Default.Room, "Titik Awal (Start Marker)", "Tampilkan ikon awal (A)", GojekGreen)
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
+                            ToggleRow(showEndMarker, { showEndMarker = it }, Icons.Default.Room, "Titik Akhir (End Marker)", "Tampilkan ikon akhir (B)", ComposeColor(0xFFE53935))
+                        }
+
+                        Button(
+                            onClick = { showCustomSheet = false },
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = GojekGreen),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Selesai", fontWeight = FontWeight.Bold, color = ComposeColor.White)
+                        }
+                        Spacer(Modifier.height(20.dp))
+                    }
+                }
+            }
         }
     }
 }

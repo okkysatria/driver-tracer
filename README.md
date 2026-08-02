@@ -1,21 +1,36 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+<img width="1200" height="475" alt="Driver Tracker" src="https://img.shields.io/badge/Driver%20Tracker-Android-00AA13?style=for-the-badge&logo=android" />
 </div>
 
-# Run and deploy your AI Studio app
+# Driver Tracker
 
-This contains everything you need to run your app locally.
+Aplikasi Android untuk mencatat rute dan pendapatan driver rideshare, lengkap dengan peta heatmap untuk menemukan area paling gacor.
 
-View your app in AI Studio: https://ai.studio/apps/8a679427-c6a7-4093-a3ac-32cb1c296784
+## Fitur
+- 📍 **Perekam Order**: Catat order (penumpang / food / paket) dari pickup sampai selesai, lengkap dengan track GPS.
+- 🗺️ **Heatmap Radar**: Prediksi hotspot order berdasarkan waktu, hari, dan lokasi driver (ONNX ML + H3 hex grid).
+- 💰 **Dashboard**: Laporan pendapatan harian/mingguan.
+- 🔄 **Share Rute**: Ekspor rute perjalanan.
+- 🌙 **Dark Mode**: Tampilan gelap ramah mata.
 
-## Run Locally
+## Cara Menjalankan (Local)
+**Prasyarat:** [Android Studio](https://developer.android.com/studio)
 
-**Prerequisites:**  [Android Studio](https://developer.android.com/studio)
+1. Buka Android Studio
+2. Pilih **Open** dan pilih folder project ini
+3. Biarkan Android Studio memperbaiki incompatibilities saat import
+4. Jalankan app di emulator atau device fisik
 
+## Build Release
+- Konfigurasi signing ada di `app/build.gradle.kts` (blok `signingConfigs`).
 
-1. Open Android Studio
-2. Select **Open** and choose the directory containing this project
-3. Allow Android Studio to fix any incompatibilities as it imports the project.
-4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
-5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
-6. Run the app on an emulator or physical device
+## Struktur
+```
+app/src/main/java/com/example/
+├── MainActivity.kt          # Entry point + GPS permission
+├── viewmodel/               # Logika inti (order, GPS, timer)
+├── data/                    # Room DB (OrderRecord)
+├── ui/screens/              # RekamOrder, Heatmap, Dashboard, Track, Settings
+├── ui/components/           # OsmMapView (CartoDB), marker
+└── ml/                      # SmartHeatmapPredictor (ONNX + H3)
+```

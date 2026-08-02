@@ -509,46 +509,6 @@ fun SettingsScreen(
                     }
                 }
 
-                // 2. Manual PBF Option
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            color = if (viewModel.mapSource == "manual_pbf") GojekGreen.copy(alpha = 0.08f) else Color.Transparent,
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .clickable {
-                            viewModel.mapSource = "manual_pbf"
-                            viewModel.saveLocalSettings()
-                        }
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = viewModel.mapSource == "manual_pbf",
-                        onClick = {
-                            viewModel.mapSource = "manual_pbf"
-                            viewModel.saveLocalSettings()
-                        },
-                        colors = RadioButtonDefaults.colors(selectedColor = GojekGreen)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Peta Offline (.zip/.mbtiles)",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = if (viewModel.mapSource == "manual_pbf") GojekGreen else MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Menggunakan berkas peta offline lokal dalam format .zip atau .mbtiles.",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-
                 // Conditionally show Import button if Manual PBF is selected
                 if (viewModel.mapSource == "manual_pbf") {
                     Card(
@@ -1323,7 +1283,7 @@ fun SettingsScreen(
         ) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Tentang Aplikasi", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text("ID Aplikasi: com.aistudio.drivertracker", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("ID Aplikasi: com.example.drivertracker", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Versi: 1.0.0 (Beta)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Order Tersimpan: ${orders.size} order", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Ukuran Database: %.2f KB".format(orders.size * 0.42), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

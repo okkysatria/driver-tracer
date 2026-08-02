@@ -1,47 +1,18 @@
-# Built application files
-*.apk
-*.aar
-*.ap_
-*.aab
-
-# Files for the ART/Dalvik VM
-*.dex
-
-# Java class files
-*.class
-
-# Generated files
-bin/
-gen/
-out/
-.gradle/
-build/
-
-# Local configuration file (sdk path, etc)
-local.properties
-
-# Log/OS Files
-*.log
-
-# Android Studio / IntelliJ
 *.iml
-.idea/
+.gradle
+.kotlin
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
 .DS_Store
-captures/
-.externalNativeBuild/
-.cxx/
-
-# Keystore files
-*.jks
-*.keystore
-
-# Google credentials (NEVER commit)
-google_token*.json
-google_client_secret*.json
-*.env
-
-# OSMDroid offline tiles cache
-osmdroid/
-
-# Model / large binary assets (optional - uncomment if you keep them out of git)
-# app/src/main/assets/model.onnx
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+.env
+debug.keystore

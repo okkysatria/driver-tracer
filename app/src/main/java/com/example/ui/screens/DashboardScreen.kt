@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.OrderRecord
 import com.example.ui.theme.*
 import com.example.viewmodel.MainViewModel
+import com.example.ui.components.MonthlyReportExportCard
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -1855,6 +1856,23 @@ fun DashboardScreen(
                 },
                 shape = RoundedCornerShape(24.dp)
             )
+        }
+
+        // LAPORAN PENDAPATAN BULANAN (komponen terpisah)
+        Text(
+            text = "Laporan Pendapatan Bulanan",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = GojekGreen
+        )
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(20.dp),
+            border = CardDefaults.outlinedCardBorder()
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                MonthlyReportExportCard(viewModel = viewModel)
+            }
         }
     }
 }

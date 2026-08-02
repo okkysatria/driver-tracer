@@ -150,8 +150,8 @@ enum class TrackerTemplatePreset(
 ) {
     GOJEK_SLEEK(
         "gojek_sleek",
-        "Emerald Gojek",
-        "Latar dinamis Gojek dengan rute neon hijau.",
+        "Gojek (Hijau)",
+        "Rute hijau khas Gojek di atas peta.",
         StravaCardTheme.GOJEK_EMERALD,
         PosterBgStyle.GRADIENT_GREEN,
         MapBgStyle.MAP_TILES,
@@ -159,148 +159,27 @@ enum class TrackerTemplatePreset(
         ColorLookupPreset.COLOR_MATCH,
         true
     ),
-    STRAVA_SUNSET(
-        "strava_sunset",
-        "Strava Sunset",
-        "Latar malam sporti & rute solar oranye.",
-        StravaCardTheme.STRAVA_ORANGE,
-        PosterBgStyle.GRADIENT_DARK,
-        MapBgStyle.MAP_TILES,
-        MapDisplayMode.AUTOMATIC,
-        ColorLookupPreset.COLOR_MATCH,
-        true
-    ),
-    CYBER_PULSE(
-        "cyber_pulse",
-        "Onyx Cyber",
-        "Latar hitam pekat & aksen neon kuning voltase.",
-        StravaCardTheme.CYBER_PULSE,
-        PosterBgStyle.DARK_SOLID,
-        MapBgStyle.SOLID,
-        MapDisplayMode.AUTOMATIC,
-        ColorLookupPreset.COLOR_MATCH,
-        true
-    ),
-    NEON_AMETHYST(
-        "neon_amethyst",
-        "Neon Amethyst",
-        "Latar ungu karbon pekat dengan aksen pink magenta.",
-        StravaCardTheme.ROYAL_CARBON,
-        PosterBgStyle.GRADIENT_DARK,
-        MapBgStyle.SOLID,
-        MapDisplayMode.AUTOMATIC,
-        ColorLookupPreset.COLOR_MATCH,
-        true
-    ),
-    OCEAN_BREEZE(
-        "ocean_breeze",
-        "Deep Ocean",
-        "Elegansi biru laut dengan rute cyan terang.",
-        StravaCardTheme.OCEAN_DEEP,
-        PosterBgStyle.GRADIENT_DARK,
-        MapBgStyle.MAP_TILES,
-        MapDisplayMode.AUTOMATIC,
-        ColorLookupPreset.SATELLITE_MATCH,
-        true
-    ),
-    SOLAR_ECLIPSE(
-        "solar_eclipse",
-        "Solar Eclipse",
-        "Kontras tinggi emas solar di atas hitam pekat.",
-        StravaCardTheme.SOLAR_GOLD,
-        PosterBgStyle.DARK_SOLID,
-        MapBgStyle.SOLID,
-        MapDisplayMode.VECTOR,
-        ColorLookupPreset.DARK_THEME,
-        false
-    ),
-    MINIMAL_LIGHT(
-        "minimal_light",
-        "Clean Daylight",
-        "Sederhana bersahaja dengan kontras latar terang.",
+    CLEAN_LIGHT(
+        "clean_light",
+        "Terang Bersih",
+        "Latar terang simpel, cocok untuk cetak.",
         StravaCardTheme.SOLAR_GOLD,
         PosterBgStyle.LIGHT_SOLID,
-        MapBgStyle.SOLID,
+        MapBgStyle.MAP_TILES,
         MapDisplayMode.AUTOMATIC,
         ColorLookupPreset.LIGHT_THEME,
         false
     ),
-    ECO_DAY_GLOW(
-        "eco_day_glow",
-        "Eco Mint Glow",
-        "Visual bersih berwawasan hijau ramah lingkungan.",
-        StravaCardTheme.GOJEK_EMERALD,
-        PosterBgStyle.LIGHT_SOLID,
-        MapBgStyle.MAP_TILES,
-        MapDisplayMode.AUTOMATIC,
-        ColorLookupPreset.LIGHT_THEME,
-        true
-    ),
-    VINTAGE_SEPIA(
-        "vintage_sepia",
-        "Vintage Sepia",
-        "Klasik estetik dengan nuansa warna gandum hangat.",
-        StravaCardTheme.VINTAGE_WARM,
-        PosterBgStyle.LIGHT_SOLID,
-        MapBgStyle.MAP_TILES,
-        MapDisplayMode.AUTOMATIC,
-        ColorLookupPreset.TERRAIN_MATCH,
-        true
-    ),
-    RETRO_DRIVE(
-        "retro_drive",
-        "Retro Synth 80s",
-        "Gaya retro cemerlang neon pink-cyan dan ungu.",
-        StravaCardTheme.RETRO_PINK,
-        PosterBgStyle.GRADIENT_DARK,
-        MapBgStyle.SOLID,
-        MapDisplayMode.AUTOMATIC,
-        ColorLookupPreset.COLOR_MATCH,
-        true
-    ),
-    STEALTH_CARBON(
-        "stealth_carbon",
-        "Stealth Carbon",
-        "Matte hitam murni tanpa gangguan, sangat maskulin.",
-        StravaCardTheme.CYBER_PULSE,
-        PosterBgStyle.DARK_SOLID,
-        MapBgStyle.SOLID,
-        MapDisplayMode.VECTOR,
-        ColorLookupPreset.DARK_THEME,
-        false
-    ),
-    ROYAL_EMPIRE(
-        "royal_empire",
-        "Royal Gold",
-        "Kemewahan biru bangsawan dengan aksen emas matang.",
-        StravaCardTheme.SOLAR_GOLD,
+    DARK_MODE(
+        "dark_mode",
+        "Gelap",
+        "Tema gelap untuk malam hari.",
+        StravaCardTheme.MIDNIGHT_ONYX,
         PosterBgStyle.GRADIENT_DARK,
         MapBgStyle.MAP_TILES,
         MapDisplayMode.AUTOMATIC,
-        ColorLookupPreset.SATELLITE_MATCH,
-        true
-    ),
-    TRANSPARENT_BG(
-        "transparent_bg",
-        "BG Transparan",
-        "Hanya latar poster transparan, peta & stats berwarna.",
-        StravaCardTheme.GOJEK_EMERALD,
-        PosterBgStyle.TRANSPARENT,
-        MapBgStyle.MAP_TILES,
-        MapDisplayMode.AUTOMATIC,
-        ColorLookupPreset.COLOR_MATCH,
-        false
-    ),
-    ALL_TRANSPARENT(
-        "all_transparent",
-        "Semua Transparan",
-        "Transparan penuh termasuk peta (hanya rute & teks).",
-        StravaCardTheme.CYBER_PULSE,
-        PosterBgStyle.TRANSPARENT,
-        MapBgStyle.TRANSPARENT,
-        MapDisplayMode.VECTOR,
         ColorLookupPreset.DARK_THEME,
-        false
+        true
     )
 }
 

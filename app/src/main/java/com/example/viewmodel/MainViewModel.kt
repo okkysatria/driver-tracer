@@ -51,6 +51,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // GPS Settings & States
     var trackingIntervalSec by mutableStateOf(5) // Default 5 seconds
     var useGpsSimulator by mutableStateOf(false)
+    var gpsWarningMessage by mutableStateOf<String?>(null)
     var smartHeatmapEnabled by mutableStateOf(true)
     var holidayAnalysisEnabled by mutableStateOf(true)
     var weatherAnalysisEnabled by mutableStateOf(true)
@@ -255,8 +256,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         if (!hasFine && !hasCoarse) {
-            // Permissions are NOT granted yet, safely run simulator/emulator drift instead of requesting fused or native location updates
-            startEmulatorDriftFallback()
+            // No GPS permission AND simulator is OFF -> do NOT fake location.
+            // Stop tracking and warn the user so they know data is not real.
+            gpsWarningMessage = "Izin lokasi tidak diberikan. Pelacakan dihentikan — hidupkan GPS & beri izin lokasi."
+            resetWorkflow()
             return
         }
 
@@ -358,10 +361,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     if (!nativeStarted) {
                         nativeLocationListener = null
-                        startEmulatorDriftFallback()
+                        gpsWarningMessage = "GPS mati / tidak tersedia. Pelacakan dihentikan agar data tidak palsu. Nyalakan GPS lalu mulai lagi."
+                        resetWorkflow()
                     }
                 } else {
-                    startEmulatorDriftFallback()
+                    gpsWarningMessage = "Layanan lokasi tidak tersedia. Pelacakan dihentikan agar data tidak palsu."
+                    resetWorkflow()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -676,94 +681,91 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val list = allOrders.value
         val prefix = String.format(Locale.US, "%04d-%02d", year, monthNumber)
         val filtered = list.filter { it.tanggal.startsWith(prefix) }.sortedBy { it.tanggal }
-        
+
         val months = listOf(
-            "Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+            "Januari", "Februari", "Maret", "April", "Mei", "Juni",
             "Juli", "Agustus", "September", "Oktober", "November", "Desember"
         )
         val monthLabel = if (monthNumber in 1..12) months[monthNumber - 1] else "Bulan-$monthNumber"
-        
+
+        val rupiah = { v: Double -> "Rp ${String.format(Locale.US, "%,.0f", v)}" }
+        val nf = { v: Double -> String.format(Locale.US, "%,.2f", v) }
+
         val rpt = java.lang.StringBuilder()
-        rpt.append("=========================================================================\n")
-        rpt.append("             LAPORAN REKAPITULASI PENDAPATAN BULANAN DRIVER              \n")
-        rpt.append("=========================================================================\n\n")
-        
-        rpt.append("INFORMASI MITRA PENGENDARA (DRIVER):\n")
-        rpt.append("-------------------------------------------------------------------------\n")
-        rpt.append("Nama Lengkap Pengendara  : ${driverName.ifBlank { "DRIVER UTAMA" }.uppercase()}\n")
-        rpt.append("Periode Laporan Bulanan  : $monthLabel $year\n")
-        rpt.append("Tanggal Dokumen Dibuat   : ${SimpleDateFormat("dd MMMM yyyy HH:mm", Locale("id", "ID")).format(Date())}\n")
-        rpt.append("Sifat Dokumen            : Bukti Pencatatan Pendapatan Mandiri (In-App)\n")
-        rpt.append("-------------------------------------------------------------------------\n\n")
-        
+        rpt.append("LAPORAN REKAPITULASI PENDAPATAN BULANAN\n")
+        rpt.append("Driver Tracker\n\n")
+
+        rpt.append("INFORMASI DRIVER\n")
+        rpt.append("Nama Pengendara : ${driverName.ifBlank { "DRIVER UTAMA" }.uppercase()}\n")
+        rpt.append("Periode         : $monthLabel $year\n")
+        rpt.append("Tanggal Cetak   : ${SimpleDateFormat("dd MMMM yyyy HH:mm", Locale("id", "ID")).format(Date())}\n\n")
+
         val totalTrips = filtered.size
         val totalGross = filtered.sumOf { it.pendapatan }
         val totalDistance = filtered.sumOf { it.jarakTempuh }
-        val totalDuration = filtered.sumOf { it.durasi }
         
         val distinctDays = filtered.map { it.tanggal }.distinct().size
-        
-        // Estimasi biaya operasional realistik bensin/BBM & makan sekitar 25% dari bruto
-        val estOperasional = totalGross * 0.25
-        val netIncome = totalGross - estOperasional
-        
-        rpt.append("RINGKASAN KEUANGAN DAN ESTIMASI BERSIH:\n")
-        rpt.append("-------------------------------------------------------------------------\n")
-        rpt.append("Jumlah Hari Aktif On-Bid : $distinctDays hari\n")
-        rpt.append("Total Order Selesai      : $totalTrips order\n")
-        rpt.append("Total Jarak Tempuh Rute  : ${String.format(Locale.US, "%.2f", totalDistance)} km\n")
-        rpt.append("Total Durasi Mengemudi   : $totalDuration menit\n")
-        rpt.append("-------------------------------------------------------------------------\n")
-        rpt.append("1. TOTAL PENDAPATAN KOTOR (Bruto)   : Rp ${String.format(Locale.US, "%,.0f", totalGross)}\n")
-        rpt.append("2. Estimasi Pemakaian BBM & Makan    : Rp ${String.format(Locale.US, "%,.0f", estOperasional)} (Potongan 25% Mandiri)\n")
-        rpt.append("3. ESTIMASI TOTAL PENDAPATAN BERSIH : Rp ${String.format(Locale.US, "%,.0f", netIncome)}\n")
-        rpt.append("-------------------------------------------------------------------------\n")
-        rpt.append("Rata-rata Pendapatan / Order        : Rp ${if (totalTrips > 0) String.format(Locale.US, "%,.0f", totalGross / totalTrips) else "0"}\n")
-        rpt.append("Rata-rata Pendapatan / Hari Aktif   : Rp ${if (distinctDays > 0) String.format(Locale.US, "%,.0f", totalGross / distinctDays) else "0"}\n")
-        rpt.append("=========================================================================\n\n")
-        
-        rpt.append("IKHTISAR REKAPITULASI AKTIVITAS HARIAN:\n")
-        rpt.append("-------------------------------------------------------------------------\n")
-        rpt.append("Tanggal     | Order | Jarak (km) | Pendapatan Bruto (Rp)\n")
-        rpt.append("-------------------------------------------------------------------------\n")
-        
+
+        rpt.append("RINGKASAN BULAN INI\n")
+        rpt.append("Hari aktif       : $distinctDays hari\n")
+        rpt.append("Total order      : $totalTrips order\n")
+        rpt.append("Total jarak      : ${nf(totalDistance)} km\n")
+        rpt.append("Total durasi     : ${filtered.sumOf { it.durasi }} menit\n")
+        rpt.append("Pendapatan kotor : ${rupiah(totalGross)}\n")
+        if (totalTrips > 0) {
+            rpt.append("Rata-rata/order  : ${rupiah(totalGross / totalTrips)}\n")
+            rpt.append("Rata-rata/hari   : ${rupiah(if (distinctDays > 0) totalGross / distinctDays else 0.0)}\n")
+        }
+        rpt.append("\n")
+
+        // Breakdown per jenis layanan
+        rpt.append("RINCIAN PER LAYANAN\n")
+        val byType = filtered.groupBy { it.jenisOrder }
+        for ((type, orders) in byType) {
+            val sum = orders.sumOf { it.pendapatan }
+            rpt.append(String.format(Locale.US, "%-12s : %4d order  %s\n", type, orders.size, rupiah(sum)))
+        }
+        rpt.append("\n")
+
+        // Rekap harian
+        rpt.append("REKAP HARIAN\n")
+        rpt.append(String.format(Locale.US, "%-12s %6s %12s %16s\n", "Tanggal", "Order", "Jarak(km)", "Pendapatan"))
+        rpt.append("------------------------------------------------------------\n")
         val dayGrouped = filtered.groupBy { it.tanggal }
         for ((date, orders) in dayGrouped) {
             val dSum = orders.sumOf { it.pendapatan }
             val dDist = orders.sumOf { it.jarakTempuh }
-            rpt.append(String.format(Locale.US, "%-11s | %5d | %10.1f | Rp %s\n", date, orders.size, dDist, String.format(Locale.US, "%,.0f", dSum)))
+            rpt.append(String.format(Locale.US, "%-12s %6d %12s %16s\n", date, orders.size, nf(dDist), rupiah(dSum)))
         }
         if (dayGrouped.isEmpty()) {
-            rpt.append("(Tidak ada catatan perjalanan dalam periode terpilih)\n")
+            rpt.append("(Tidak ada catatan pada periode ini)\n")
         }
-        rpt.append("-------------------------------------------------------------------------\n\n")
-        
-        rpt.append("RINCIAN DETIL PERJALANAN SELESAI:\n")
-        rpt.append("---------------------------------------------------------------------------------------------\n")
-        rpt.append("Id Order | Tanggal     | Jam   | Layanan     | Jarak (km) | Pendapatan Bruto | Catatan / Notes\n")
-        rpt.append("---------------------------------------------------------------------------------------------\n")
+        rpt.append("\n")
+
+        // Detail order
+        rpt.append("DETAIL ORDER\n")
+        rpt.append(String.format(Locale.US, "%-4s %-11s %-6s %-11s %10s %14s\n", "ID", "Tanggal", "Jam", "Layanan", "Jarak", "Pendapatan"))
+        rpt.append("------------------------------------------------------------\n")
         for (o in filtered) {
             rpt.append(
                 String.format(
                     Locale.US,
-                    "%-8d | %-11s | %-5s | %-11s | %10s | Rp %-12s | %s\n",
+                    "%-4d %-11s %-6s %-11s %10s %14s\n",
                     o.id,
                     o.tanggal,
                     o.jamMulai,
                     o.jenisOrder.take(11),
-                    String.format(Locale.US, "%.1f", o.jarakTempuh),
-                    String.format(Locale.US, "%,.0f", o.pendapatan),
-                    o.catatan?.replace("\n", " ")?.take(20) ?: "-"
+                    nf(o.jarakTempuh),
+                    rupiah(o.pendapatan)
                 )
             )
         }
         if (filtered.isEmpty()) {
-            rpt.append("(Tidak ada riwayat transaksi order dalam periode ini)\n")
+            rpt.append("(Tidak ada riwayat order)\n")
         }
-        rpt.append("---------------------------------------------------------------------------------------------\n")
-        rpt.append("Data di atas dicatat mandiri melalui Aplikasi Driver GPS Tracker.\n")
-        rpt.append("=============================================================================================\n")
-        
+        rpt.append("\n")
+        rpt.append("Dokumen dibuat otomatis oleh Driver Tracker.\n")
+
         return rpt.toString()
     }
 

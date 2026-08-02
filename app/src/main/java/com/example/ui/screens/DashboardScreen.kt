@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.LocalTextStyle
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -101,6 +102,7 @@ fun DashboardScreen(
     var filterJarakValue by remember { mutableStateOf("") }
     var filterPendapatanOperator by remember { mutableStateOf("Semua") }
     var filterPendapatanValue by remember { mutableStateOf("") }
+    var searchQuery by remember { mutableStateOf("") }
     var showFilterPanel by remember { mutableStateOf(false) }
 
     // SORT STATES
@@ -1004,7 +1006,8 @@ fun DashboardScreen(
         // STATE VARIABLE FOR DETAILED DIALOG
         var activeDetailOrder by remember { mutableStateOf<OrderRecord?>(null) }
 
-        val filteredOrders = remember(orders, filterTanggal, filterJenisOrder, filterJarakOperator, filterJarakValue, filterPendapatanOperator, filterPendapatanValue) {
+        val filteredOrders = remember(orders, filterTanggal, filterJenisOrder, filterJarakOperator, filterJarakValue, filterPendapatanOperator, filterPendapatanValue, searchQuery) {
+            val q = searchQuery.lowercase().trim()
             orders.filter { order ->
                 val matchTanggal = when {
                     filterTanggal.isEmpty() || filterTanggal.lowercase() == "semua" -> true
@@ -1043,8 +1046,17 @@ fun DashboardScreen(
                     }
                     else -> true
                 }
+
+                val matchSearch = when {
+                    q.isEmpty() -> true
+                    else -> order.alamatAwal.contains(q, ignoreCase = true) ||
+                            order.alamatPickup.contains(q, ignoreCase = true) ||
+                            order.alamatAkhir.contains(q, ignoreCase = true) ||
+                            order.jenisOrder.contains(q, ignoreCase = true) ||
+                            order.catatan.contains(q, ignoreCase = true)
+                }
                 
-                matchTanggal && matchJenis && matchJarak && matchPendapatan
+                matchTanggal && matchJenis && matchJarak && matchPendapatan && matchSearch
             }
         }
 
@@ -1106,6 +1118,24 @@ fun DashboardScreen(
                         }
                     }
                 }
+
+                // Search bebas (alamat / jenis / catatan)
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Cari alamat / jenis / catatan...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    singleLine = true,
+                    textStyle = LocalTextStyle.current.copy(fontSize = 13.sp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .testTag("search_order_field"),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GojekGreen,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    )
+                )
 
                 // SORTING PANEL (Scrollable chips + direction toggle)
                 Row(

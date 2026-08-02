@@ -94,6 +94,36 @@ fun RekamOrderScreen(
                         viewModel.currentScreen = "dashboard_pendapatan"
                     }
             ) {
+                // GPS Warning Banner (jika lokasi mati / izin ditolak)
+                viewModel.gpsWarningMessage?.let { warning ->
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = warning,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
                         text = "Ringkasan Hari Ini",

@@ -43,9 +43,10 @@ import java.io.File
 import java.util.Locale
 
 /**
- * Tile sources dengan kualitas tinggi (CartoDB).
- * - Dark: CartoDB Dark Matter (cocok untuk night mode driver)
- * - Light: CartoDB Positron (clean & profesional)
+ * Tile sources dengan label jalan yang JELAS (mirip Google Maps).
+ * - Standard OSM: label jalan sangat terang & kontras (default, light)
+ * - CartoDB Dark Matter: dark mode tapi label tetap readable
+ * - CartoDB Voyager: tengah, label jelas, estetik
  */
 private fun cartoTileSource(name: String, url: String): XYTileSource {
     return XYTileSource(
@@ -54,11 +55,15 @@ private fun cartoTileSource(name: String, url: String): XYTileSource {
     )
 }
 
+// OSM Standard - label jalan paling jelas & terang (kayak Google Maps)
+private val TILE_OSM_STANDARD = org.osmdroid.tileprovider.tilesource.TileSourceFactory.MAPNIK
+// CartoDB Dark Matter - dark mode dengan label readable
 private val TILE_CARTO_DARK = cartoTileSource(
     "CartoDark", "https://a.basemaps.cartocdn.com/dark_all/"
 )
-private val TILE_CARTO_LIGHT = cartoTileSource(
-    "CartoLight", "https://a.basemaps.cartocdn.com/light_all/"
+// CartoDB Voyager - label jelas, estetik, cocok untuk light mode elegan
+private val TILE_CARTO_VOYAGER = cartoTileSource(
+    "CartoVoyager", "https://a.basemaps.cartocdn.com/rastertiles/voyager/"
 )
 private val TILE_OSM_FALLBACK = org.osmdroid.tileprovider.tilesource.TileSourceFactory.MAPNIK
 
@@ -123,7 +128,7 @@ fun OsmMapView(
                     } else if (isDarkMode) {
                         TILE_CARTO_DARK
                     } else {
-                        TILE_CARTO_LIGHT
+                        TILE_CARTO_VOYAGER
                     }
                     view.setTileProvider(provider)
                     view.controller.setZoom(15.5)

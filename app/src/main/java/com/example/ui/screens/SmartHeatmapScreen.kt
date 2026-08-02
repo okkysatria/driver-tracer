@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -169,9 +170,12 @@ fun SmartHeatmapScreen(
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             OsmMapView(
-                modifier = Modifier.fillMaxSize(),
-                trackPoints = emptyList(),
-                viewModel = viewModel
+                latitude = viewModel.lastKnownLatitude,
+                longitude = viewModel.lastKnownLongitude,
+                isDarkMode = viewModel.isDarkMode,
+                currentPathPoints = emptyList(),
+                historicalOrders = viewModel.allOrders.collectAsState().value,
+                modifier = Modifier.fillMaxSize()
             )
 
             Row(
@@ -322,8 +326,8 @@ private fun HeatmapFilterPanel(sortBy: String, onSortChange: (String) -> Unit, f
 @Composable
 private fun FilterSection(
     title: String,
-    icon: androidx.compose.material.icons.materialIcon,
-    options: List<Triple<String, String, androidx.compose.material.icons.materialIcon>>,
+    icon: ImageVector,
+    options: List<Triple<String, String, ImageVector>>,
     selectedKey: String,
     onSelected: (String) -> Unit
 ) {

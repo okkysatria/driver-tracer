@@ -11,7 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.LocalTextStyle
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -1050,10 +1050,10 @@ fun DashboardScreen(
                 val matchSearch = when {
                     q.isEmpty() -> true
                     else -> order.alamatAwal.contains(q, ignoreCase = true) ||
-                            order.alamatPickup.contains(q, ignoreCase = true) ||
-                            order.alamatAkhir.contains(q, ignoreCase = true) ||
+                            order.alamatPickup?.contains(q, ignoreCase = true) == true ||
+                            order.alamatAkhir?.contains(q, ignoreCase = true) == true ||
                             order.jenisOrder.contains(q, ignoreCase = true) ||
-                            order.catatan.contains(q, ignoreCase = true)
+                            order.catatan?.contains(q, ignoreCase = true) == true
                 }
                 
                 matchTanggal && matchJenis && matchJarak && matchPendapatan && matchSearch

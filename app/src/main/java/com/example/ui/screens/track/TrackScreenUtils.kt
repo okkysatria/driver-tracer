@@ -10,7 +10,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -87,7 +89,7 @@ fun StatsRowCompact(
     label: String,
     value: String,
     unit: String = "",
-    icon: androidx.compose.material.icons.materialIcon? = null,
+    icon: ImageVector? = null,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -117,7 +119,7 @@ fun StatsRowCompact(
             )
         }
         Text(
-            text = "$"value",
+            text = value,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
@@ -128,7 +130,7 @@ fun StatsRowCompact(
 @Composable
 fun PosterActionButton(
     label: String,
-    icon: androidx.compose.material.icons.materialIcon,
+    icon: ImageVector,
     onClick: () -> Unit,
     isLoading: Boolean = false,
     modifier: Modifier = Modifier,

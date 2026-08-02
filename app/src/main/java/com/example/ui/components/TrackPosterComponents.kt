@@ -11,20 +11,22 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.BorderStroke
 import com.example.ui.theme.GojekGreen
 
 data class MenuOption(
     val id: String,
     val label: String,
-    val icon: androidx.compose.material.icons.materialIcon,
+    val icon: ImageVector,
     val description: String? = null
 )
 
@@ -149,7 +151,7 @@ fun HorizontalMenuItemCard(
             containerColor = if (isSelected) GojekGreen.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant
         ),
         border = if (isSelected) {
-            androidx.compose.foundation.BorderStroke(1.5dp, GojekGreen)
+            BorderStroke(1.5.dp, GojekGreen)
         } else {
             null
         }
@@ -178,7 +180,7 @@ fun HorizontalMenuItemCard(
 @Composable
 fun ExpandableMenuSection(
     title: String,
-    icon: androidx.compose.material.icons.materialIcon,
+    icon: ImageVector,
     items: List<MenuOption>,
     selectedItem: String?,
     onItemSelected: (String) -> Unit,
@@ -186,7 +188,7 @@ fun ExpandableMenuSection(
     isExpanded: Boolean = true,
     onExpandChange: (Boolean) -> Unit = {}
 ) {
-    var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(isExpanded) }
+    var expanded by remember { mutableStateOf(isExpanded) }
 
     Column(
         modifier = modifier

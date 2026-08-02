@@ -146,9 +146,9 @@ class SmartHeatmapPredictor(private val context: Context, private val modelUriSt
         var inferenceSuccess = false
 
         // 1. Jalankan model ONNX dengan aman
-        if (isModelLoaded && ortSession != null) {
+        val session = ortSession
+        if (isModelLoaded && session != null) {
             try {
-                val session = ortSession!!
                 val inputNames = session.inputNames
                 val inputsMap = mutableMapOf<String, OnnxTensor>()
 

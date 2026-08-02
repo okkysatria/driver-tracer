@@ -1568,8 +1568,8 @@ fun DashboardScreen(
         }
 
         // DETAILED DIALOG IMPLEMENTATION
-        if (activeDetailOrder != null) {
-            val order = activeDetailOrder!!
+        val order = activeDetailOrder
+        if (order != null) {
             var showRawGpsPoints by remember { mutableStateOf(false) }
             val points = remember(order) { order.getTrackPoints() }
 

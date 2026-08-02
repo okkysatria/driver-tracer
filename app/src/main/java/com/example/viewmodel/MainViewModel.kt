@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Geocoder
 import android.location.Location
-import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -113,8 +112,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     var showSaveDialogDirectly by mutableStateOf(false)
     
     private var trackingStartTimeMillis = 0L
-    private var timerHandler = Handler(Looper.getMainLooper())
-    private var timerRunnable: Runnable? = null
+    private var timerJob: kotlinx.coroutines.Job? = null
 
     // Location engine
     private val fusedLocationClient: FusedLocationProviderClient =
@@ -200,8 +198,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun disableEmulatorFallback() {
-        driftRunnable?.let { driftHandler.removeCallbacks(it) }
-        driftRunnable = null
+        driftJob?.cancel()
+        driftJob = null
     }
 
     @SuppressLint("MissingPermission")
@@ -301,18 +299,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             setMinUpdateIntervalMillis(trackingIntervalSec * 500L)
         }.build()
 
-        locationCallback = object : LocationCallback() {
+        val callback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 disableEmulatorFallback()
                 val loc = locationResult.lastLocation ?: return
                 updateCurrentLocation(loc)
             }
         }
+        locationCallback = callback
 
         try {
             fusedLocationClient.requestLocationUpdates(
                 locationRequest,
-                locationCallback!!,
+                callback,
                 Looper.getMainLooper()
             )
             fusedStarted = true
@@ -325,7 +324,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (!fusedStarted) {
             try {
                 if (locationManager != null) {
-                    nativeLocationListener = object : android.location.LocationListener {
+                    val listener = object : android.location.LocationListener {
                         override fun onLocationChanged(loc: Location) {
                             disableEmulatorFallback()
                             updateCurrentLocation(loc)
@@ -334,6 +333,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         override fun onProviderEnabled(provider: String) {}
                         override fun onProviderDisabled(provider: String) {}
                     }
+                    nativeLocationListener = listener
 
                     var nativeStarted = false
                     if (hasFine && locationManager.allProviders.contains(android.location.LocationManager.GPS_PROVIDER)) {
@@ -341,7 +341,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             android.location.LocationManager.GPS_PROVIDER,
                             trackingIntervalSec * 1000L,
                             0f,
-                            nativeLocationListener!!,
+                            listener,
                             Looper.getMainLooper()
                         )
                         nativeStarted = true
@@ -351,7 +351,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             android.location.LocationManager.NETWORK_PROVIDER,
                             trackingIntervalSec * 1000L,
                             0f,
-                            nativeLocationListener!!,
+                            listener,
                             Looper.getMainLooper()
                         )
                         nativeStarted = true
@@ -371,20 +371,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private var driftHandler = Handler(Looper.getMainLooper())
-    private var driftRunnable: Runnable? = null
+    private var driftJob: kotlinx.coroutines.Job? = null
 
     private fun startEmulatorDriftFallback() {
-        driftRunnable?.let { driftHandler.removeCallbacks(it) }
-        driftRunnable = object : Runnable {
-            override fun run() {
+        driftJob?.cancel()
+        driftJob = viewModelScope.launch {
+            while (isActive) {
+                delay(4000)
                 // If workflow is active, simulate a slow movement/drift
                 if (workflowState != WorkflowState.IDLE) {
                     val driftLat = (Random().nextDouble() - 0.5) * 0.0003
                     val driftLng = (Random().nextDouble() - 0.5) * 0.0003
                     val newLat = lastKnownLatitude + driftLat
                     val newLng = lastKnownLongitude + driftLng
-                    
+
                     val simulatedLoc = Location("simulated").apply {
                         latitude = newLat
                         longitude = newLng
@@ -392,10 +392,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     updateCurrentLocation(simulatedLoc)
                 }
-                driftHandler.postDelayed(this, 4000)
             }
         }
-        driftHandler.post(driftRunnable!!)
     }
 
     private fun updateCurrentLocation(location: Location) {
@@ -584,10 +582,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun startTimer() {
-        timerRunnable?.let { timerHandler.removeCallbacks(it) }
+        timerJob?.cancel()
         var lastMinute = -1L
-        timerRunnable = object : Runnable {
-            override fun run() {
+        timerJob = viewModelScope.launch {
+            while (isActive) {
                 val elapsed = System.currentTimeMillis() - trackingStartTimeMillis
                 val currentMinutes = elapsed / 60000
                 activeDurationMinutes = currentMinutes
@@ -595,17 +593,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     lastMinute = currentMinutes
                     updateNotification()
                 }
-                timerHandler.postDelayed(this, 1000)
+                delay(1000)
             }
         }
-        timerHandler.post(timerRunnable!!)
     }
 
     private fun stopTimer() {
-        timerRunnable?.let {
-            timerHandler.removeCallbacks(it)
-            timerRunnable = null
-        }
+        timerJob?.cancel()
+        timerJob = null
     }
 
     // RESET ALL
@@ -874,7 +869,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         super.onCleared()
         stopTimer()
         stopLocationUpdates()
-        driftRunnable?.let { driftHandler.removeCallbacks(it) }
+        driftJob?.cancel()
     }
 
 }

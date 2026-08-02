@@ -119,6 +119,17 @@ enum class PosterBgStyle(val label: String, val isMap: Boolean) {
     TRANSPARENT("Transparan", false)
 }
 
+// Tile source ngikut tema app (Voyager = terang, Dark Matter = gelap), konsisten dengan OsmMapView
+private fun cartoTileSource(name: String, url: String): org.osmdroid.tileprovider.tilesource.XYTileSource {
+    return org.osmdroid.tileprovider.tilesource.XYTileSource(name, 0, 20, 256, ".png", arrayOf(url))
+}
+private val TILE_CARTO_VOYAGER = cartoTileSource("CartoVoyager", "https://a.basemaps.cartocdn.com/rastertiles/voyager/")
+private val TILE_CARTO_DARK = cartoTileSource("CartoDark", "https://a.basemaps.cartocdn.com/dark_all/")
+
+private fun mapTileSourceForTheme(isDark: Boolean): org.osmdroid.tileprovider.tilesource.XYTileSource {
+    return if (isDark) TILE_CARTO_DARK else TILE_CARTO_VOYAGER
+}
+
 enum class MapBgStyle(val label: String) {
     MAP_TILES("Gambar Peta"),
     SOLID("Warna Solid"),
@@ -357,10 +368,10 @@ fun MapViewComposable(
                             val op = org.osmdroid.tileprovider.MapTileProviderBasic(context)
                             op.tileSource = org.osmdroid.tileprovider.tilesource.XYTileSource("OfflineMap", 1, 19, 256, ".png", arrayOf())
                             setTileProvider(op)
-                        } catch (_: Exception) { setTileSource(org.osmdroid.tileprovider.tilesource.TileSourceFactory.MAPNIK) }
-                    } else setTileSource(org.osmdroid.tileprovider.tilesource.TileSourceFactory.MAPNIK)
+                        } catch (_: Exception) { setTileSource(mapTileSourceForTheme(viewModel.isDarkMode)) }
+                    } else setTileSource(mapTileSourceForTheme(viewModel.isDarkMode))
                 }
-                else -> setTileSource(org.osmdroid.tileprovider.tilesource.TileSourceFactory.MAPNIK)
+                else -> setTileSource(mapTileSourceForTheme(viewModel.isDarkMode))
             }
             setMultiTouchControls(true)
             isTilesScaledToDpi = true
@@ -552,7 +563,6 @@ fun TrackScreen(
     var driverNameInput   by remember { mutableStateOf("") }
     var selectedTheme     by remember { mutableStateOf(StravaCardTheme.GOJEK_EMERALD) }
 
-    // Display toggles
     var showDistance   by remember { mutableStateOf(true) }
     var showEarnings   by remember { mutableStateOf(true) }
     var showDuration   by remember { mutableStateOf(true) }
@@ -562,8 +572,8 @@ fun TrackScreen(
     var distanceType   by remember { mutableStateOf("total") }
     var orderTypeFilter by remember { mutableStateOf("Semua") }
 
-    // Background style
-    var posterBgStyle  by remember { mutableStateOf(PosterBgStyle.GRADIENT_GREEN) }
+    // Background style - default terang (sesuai tema app)
+    var posterBgStyle  by remember { mutableStateOf(PosterBgStyle.LIGHT_SOLID) }
     var mapBgStyle     by remember { mutableStateOf(MapBgStyle.MAP_TILES) }
 
     // Map overlay and customization state variables

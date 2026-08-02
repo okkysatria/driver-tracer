@@ -598,8 +598,8 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Radar Cerdas AI", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                        Text("Prediksi area potensial secara real-time berbasis kecerdasan buatan (Machine Learning).", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Radar Cerdas", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                        Text("Prediksi area potensial secara real-time berbasis pola historis order.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Switch(
                         checked = viewModel.smartHeatmapEnabled,
@@ -627,7 +627,7 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Model Cerdas ONNX (ML)",
+                                text = "Model Prediksi (ONNX)",
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.bodyMedium
                             )
@@ -702,40 +702,6 @@ fun SettingsScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
 
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-                                // Tuning custom weights / layer mapping parameters
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text("Mapping Finetuning Tensor Layer (Terisi Otomatis)", fontWeight = FontWeight.Bold, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface)
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    OutlinedTextField(
-                                        value = viewModel.onnxInputLayerName,
-                                        onValueChange = {
-                                            viewModel.onnxInputLayerName = it
-                                            viewModel.saveLocalSettings()
-                                        },
-                                        label = { Text("Input Layer Node (X) - Terdeteksi Otomatis", fontSize = 9.sp) },
-                                        textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                                        modifier = Modifier.fillMaxWidth().height(48.dp).testTag("onnx_input_layer_field"),
-                                        singleLine = true,
-                                        readOnly = true
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    OutlinedTextField(
-                                        value = viewModel.onnxOutputLayerName,
-                                        onValueChange = {
-                                            viewModel.onnxOutputLayerName = it
-                                            viewModel.saveLocalSettings()
-                                        },
-                                        label = { Text("Output Layer Node (Y) - Terdeteksi Otomatis", fontSize = 9.sp) },
-                                        textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                                        modifier = Modifier.fillMaxWidth().height(48.dp).testTag("onnx_output_layer_field"),
-                                        singleLine = true,
-                                        readOnly = true
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(4.dp))
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),

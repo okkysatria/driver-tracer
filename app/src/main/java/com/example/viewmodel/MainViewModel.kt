@@ -60,7 +60,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     var currentWeatherCondition by mutableStateOf("Cerah")
     
     // Theme state (true = dark/mode malam, false = light/mode siang)
-    var isDarkMode by mutableStateOf(true) // Default to Gojek dark theme for style
+    var isDarkMode by mutableStateOf(false) // Default terang (light mode) biar map jelas
 
     // Map Source states ("osm", "google_maps", "manual_pbf")
     var mapSource by mutableStateOf("osm")
@@ -148,7 +148,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         holidayAnalysisEnabled = prefs.getBoolean("holiday_analysis", true)
         weatherAnalysisEnabled = prefs.getBoolean("weather_analysis", true)
         currentWeatherCondition = prefs.getString("weather_condition", "Cerah") ?: "Cerah"
-        isDarkMode = prefs.getBoolean("is_dark_mode", true)
+        isDarkMode = prefs.getBoolean("is_dark_mode", false)
         mapSource = prefs.getString("map_source", "osm") ?: "osm"
         if (mapSource == "google_maps") {
             mapSource = "osm"
